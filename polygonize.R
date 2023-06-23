@@ -3,24 +3,18 @@
 library (tidyverse)
 library(data.table)
 library(adehabitatHR)
+library(concaveman)
 library(rgeos)
 library(sf)
 library(smoothr)
-
-# Optimize the libraries
-#library (REdaS)
-#library (factoextra)
-#library(rgdal)
-#library(terra)
-#library(units)
 
 source("mapProcess.R")
 
 
 speciesattr <- read.csv2(paste0("SoIB_main_09062023.csv"), sep=",") %>% 
-  dplyr::select('eBird.Scientific.Name.2022', 'India.Endemic','Clip.Region')
+  dplyr::select('eBird.Scientific.Name.2022', 'India.Endemic','Clip.Region','Polygon.Type')
 
-colnames(speciesattr) <- c("SCIENTIFIC.NAME", "ENDEMIC", "CLIP.REGION")
+colnames(speciesattr) <- c("SCIENTIFIC.NAME", "ENDEMIC", "CLIP.REGION", 'POLYGON.TYPE')
 
 speciesattr <-  speciesattr %>% filter (ENDEMIC == "Yes")
 
@@ -28,10 +22,10 @@ species <- speciesattr$SCIENTIFIC.NAME
 
 #species <- readRDS(".\\data\\species.rds")
 
-dist_thresholds <- c(50, 100, 150, 200)
+dist_thresholds <- c(50, 100)
 
 # Go over all the species.
-for (sp in species[c(-82)]) 
+for (sp in species[c(5)])
 {
   for (dist in dist_thresholds)
   {
@@ -57,15 +51,29 @@ for (sp in species[c(-82)])
                  LONGITUDE = as.integer(LOCALITY.ID/10000)/10) %>%
           dplyr::select(LATITUDE, LONGITUDE) %>%
           distinct()
+
+          sp::coordinates(loc3) <- ~LONGITUDE+LATITUDE
+          CH = gConvexHull(loc3)
         
-        sp::coordinates(loc3) <- ~LONGITUDE+LATITUDE
-        
-        CH = gConvexHull(loc3)
         if("polygons" %in% slotNames(CH))
         {
           clusterPolygonCount <- clusterPolygonCount + 1
-          r_poly_smooth <- smooth(CH, method = "chaikin")
+          
+          PolygonType <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`POLYGON.TYPE`)
         
+          if(PolygonType == "Concave")
+          {
+            dat_sf <- st_as_sf(loc3, coords = c("LONGITUDE", "LATITUDE"))
+            concave <- concaveman(dat_sf, concavity = 1.0,  length_threshold = 0.3)
+            CH <- as_Spatial(concave)
+          }
+          else
+          {
+            # Use Convexhull itself
+          }
+        
+          r_poly_smooth <- smooth(CH, method = "chaikin")
+      
           # Assigning unique ID
           r_poly_smooth@polygons[[1]]@ID <- as.character(clusterPolygonCount)
           
