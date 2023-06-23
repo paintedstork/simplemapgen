@@ -1,7 +1,13 @@
 using CSV
 using DataFrames
 
-distance(sinlat1, sinlat2, coslat1, coslat2, long1, long2) = round(6378 * acos(sinlat1 * sinlat2 + coslat1 * coslat2 * cos(long2-long1)))
+function distance(sinlat1, sinlat2, coslat1, coslat2, long1, long2)
+    dot_product = sinlat1 * sinlat2 + coslat1 * coslat2 * cos(long2 - long1)
+    dot_product = min(1, max(-1, dot_product))  # Ensure the value is within -1 to 1
+    return round(6378 * acos(dot_product))
+end
+
+distance1(sinlat1, sinlat2, coslat1, coslat2, long1, long2) = round(6378 * acos(sinlat1 * sinlat2 + coslat1 * coslat2 * cos(long2-long1)))
 
 function sub2ind(dims, i, j)
     ind = (j-1) * dims[1] + i

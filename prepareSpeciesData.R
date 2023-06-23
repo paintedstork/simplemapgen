@@ -2,12 +2,9 @@
 library (tidyverse)
 library(data.table)
 
-CurMonth <- 9
-CurYear  <- 2022
+CurMonth <- 5
+CurYear  <- 2023
 # Keep the zip file in a direct one level up as data
-
-# TODO: Move to India Data
-ebdfile <- paste0("ebd_IN_prv_rel",month.abb[CurMonth],"-",CurYear)
 
 # List the interested columns
 preimp <-  c( 
@@ -20,29 +17,47 @@ preimp <-  c(
 )
 
 
-ebdfile <- paste0("..\\state-of-indias-birds\\soibiucn\\",ebdfile)
+# Do the same for all Indian subcont countries
+countries <- c("PK", "NP", "BT", "BD", "LK", "MV", "IN")
+data <- NULL
 
+for (country in countries)
+{
+  ebdfile <- paste0("ebd_",country,"_rel",month.abb[CurMonth],"-",CurYear)
+  ebdfile <- paste0(".\\ebd\\",ebdfile)
+  
 ####################### Preparation of the dataset############################
 # Read the header plus first row
-nms <- read.delim( paste0 (ebdfile,".txt"),
-                   nrows = 1, 
-                   sep = '\t', 
-                   header = T, 
-                   quote = "", 
-                   stringsAsFactors = F, 
-                   na.strings = c ("", " ",NA)) 
-nms <- names(nms)
-nms [!(nms %in% preimp)] <- "NULL"
-nms [nms %in% preimp] <- NA
+  nms <- read.delim( paste0 (ebdfile,".txt"),
+                     nrows = 1, 
+                     sep = '\t', 
+                     header = T, 
+                     quote = "", 
+                     stringsAsFactors = F, 
+                     na.strings = c ("", " ",NA)) 
+  nms <- names(nms)
+  nms [!(nms %in% preimp)] <- "NULL"
+  nms [nms %in% preimp] <- NA
 
-data <- read.delim(paste0(ebdfile,".txt"),
-                   colClasses = nms,
-                   #                  nrows = 100000, # For testing, this is useful
-                   sep = '\t', 
-                   header = T, 
-                   quote = "", 
-                   stringsAsFactors = F, 
-                   na.strings = c ("", " ",NA)) 
+  data1 <- read.delim(paste0(ebdfile,".txt"),
+                     colClasses = nms,
+                     #                  nrows = 100000, # For testing, this is useful
+                     sep = '\t', 
+                     header = T, 
+                     quote = "", 
+                     stringsAsFactors = F, 
+                     na.strings = c ("", " ",NA)) 
+  
+  if(is.null(data))
+  { # Dont read IN first. It will create two huge dataframs
+    data <- data1
+  }
+  else
+  {
+    data <- rbind (data, data1)
+  }
+  data1 <- NULL
+}
 
 setDT(data)
 setkey(data, CATEGORY)
@@ -56,13 +71,22 @@ data <- data %>%
 
 species <- data$SCIENTIFIC.NAME %>% unique()
 
-for (sp in species) 
+for (sp in species[1318:1462]) 
 {
   df <- data %>% filter(SCIENTIFIC.NAME == sp)
   print(paste("Saving data for", sp))
   saveRDS(df, paste0(".\\data\\",sp, ".rds"))
+  df <- NULL
 }
 
 saveRDS(species, paste0(".\\data\\species.rds"))
 data <- NULL
-df <- NULL
+
+########################################################Faster vectorised code
+
+split_df <- split(data, data$SCIENTIFIC.NAME)
+lapply(names(split_df), function(v) {
+          saveRDS(split_df[[v]], file = filename <- paste0(v,".rds"))
+})
+split_df <- NULL
+data <- NULL

@@ -7,8 +7,7 @@ dist_thresholds <- c(50, 100, 150, 200)
 species <- readRDS(".\\data\\species.rds")
 
 
-
-for (sp in species[-c(16,82)]) 
+for (sp in species[-c(82)]) 
 {
   locality_matrix <- readRDS(paste0(".\\locality_matrix\\locality_matrix_",sp,".rds"))
   
