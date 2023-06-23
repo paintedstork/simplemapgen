@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.cpg
+*.dbf
+*.prj
+*.qmd
+*.shp
+*.shx
+*.rds
+*.jpg
+*.Rproj
+*.csv
+.RDataTmp
