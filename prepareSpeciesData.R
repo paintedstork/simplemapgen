@@ -69,24 +69,27 @@ data <- data[CATEGORY %in% categories]
 data <- data %>% 
   filter (APPROVED == 1)
 
-species <- data$SCIENTIFIC.NAME %>% unique()
+totspecies <- species <- data$SCIENTIFIC.NAME %>% unique()
 
-for (sp in species[1318:1462]) 
+species <- read.csv("species.csv") 
+species <- species[,1]
+
+for (sp in species) 
 {
   df <- data %>% filter(SCIENTIFIC.NAME == sp)
   print(paste("Saving data for", sp))
-  saveRDS(df, paste0(".\\data\\",sp, ".rds"))
+  saveRDS(df, paste0(".\\data\\data_",sp, ".rds"))
   df <- NULL
 }
 
-saveRDS(species, paste0(".\\data\\species.rds"))
+saveRDS(totspecies, paste0(".\\data\\species.rds"))
 data <- NULL
 
 ########################################################Faster vectorised code
 
-split_df <- split(data, data$SCIENTIFIC.NAME)
-lapply(names(split_df), function(v) {
-          saveRDS(split_df[[v]], file = filename <- paste0(v,".rds"))
-})
+#split_df <- split(data, data$SCIENTIFIC.NAME)
+#lapply(names(split_df), function(v) {
+#          saveRDS(split_df[[v]], file = filename <- paste0(".\\data\\data_",v,".rds"))
+#})
 split_df <- NULL
 data <- NULL

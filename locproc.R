@@ -65,5 +65,5 @@ write.csv(merged_data[-1], "locality.csv", row.names = FALSE)
 #Run the distance.jl Julia program to calculate all pairs distances
 #Takes locality.csv as input and generates loc.csv as output
 #########################################
-df <- read.csv("loc.csv")
+df <- read.csv("loc_extra.csv")
 saveRDS(df, "loc.RDS")
