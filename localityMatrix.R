@@ -19,8 +19,8 @@ species <- speciesattr$SCIENTIFIC.NAME
 
 #species <- readRDS(".\\data\\species.rds")
 
-#species <- read.csv("species.csv") 
-#species <- species[,1]
+species <- read.csv("species.csv") 
+species <- species[,1]
 
 for (sp in species) 
 {
@@ -152,12 +152,12 @@ for (sp in species)
     print(mem_used())
     if(num_localities > 4000)
     {
-          print(paste("Randomised",sp))
-          random_indices <- sample(num_localities, 4000)
+      print(paste("Randomised",sp))
+      random_indices <- sample(num_localities, 4000)
       # Select the random rows from the dataframe
-          localities <- localities[random_indices, ]    
-          num_localities <- nrow (localities)
-          random_indices <- NULL
+      localities <- localities[random_indices, ]    
+      num_localities <- nrow (localities)
+      random_indices <- NULL
     }
     
     

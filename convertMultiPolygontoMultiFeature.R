@@ -6,7 +6,7 @@ library(sf)
 
 
 # Read the input shapefile
-input_sf <- st_read("shapes\\India States.shp")
+input_sf <- st_read("shapes\\Maldives.shp")
 
 # Check the structure of the original sf object
 print(input_sf)

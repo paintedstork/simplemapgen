@@ -24,7 +24,7 @@ source("speciesAttr.R")
 
 
 
-map_colors <- c("W" = "darkblue", "S" = "red", "R" = "darkgreen", "P" = "yellow")
+map_colors <- c("W" = "darkblue", "S" = "red", "R" = "darkgreen", "P" = "yellow2")
 
 #num_cores <- detectCores()
 
@@ -34,21 +34,23 @@ map_colors <- c("W" = "darkblue", "S" = "red", "R" = "darkgreen", "P" = "yellow"
 
 #speciesattr <-  speciesattr %>% filter (ENDEMIC == "Yes")
 
-speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
+#speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
 
-species <- speciesattr$SCIENTIFIC.NAME %>% sort()
+#species <- speciesattr$SCIENTIFIC.NAME %>% sort()
+species <- speciesattr$SCIENTIFIC.NAME
 
 #species <- readRDS(".\\data\\species.rds")
-#species <- read.csv("species.csv") 
-#species <- species[,1]
+species <- read.csv("species.csv") 
+species <- species[,1]
 
-dist_thresholds <- c(50, 60, 100)
+dist_thresholds <- c(20, 50, 100)
+dist_thresholds <- speciesattr$RESOLUTION %>% unique() %>% na.omit() %>% as.vector() %>% sort()
 
-for (dist in dist_thresholds)
+for (sp in species)
 {
-  # Go over all the species.
-  for (sp in species)
+  for (dist in dist_thresholds)
   {
+  # Go over all the species.
     resolution <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`RESOLUTION`)
     resolution <- ifelse(is.na(resolution), 100, as.integer(resolution))
     
@@ -61,12 +63,6 @@ for (dist in dist_thresholds)
     
     gdisplay <- ggplot()
     gdisplay <- gdisplay + geom_sf(data=sea, fill = "lightblue")  
-    gdisplay <- gdisplay + geom_sf(data=pak, fill = "white")  
-    gdisplay <- gdisplay + geom_sf(data=nep, fill = "white")  
-    gdisplay <- gdisplay + geom_sf(data=bhu, fill = "white")  
-    gdisplay <- gdisplay + geom_sf(data=ban, fill = "white")  
-    gdisplay <- gdisplay + geom_sf(data=lak, fill = "white")  
-    gdisplay <- gdisplay + geom_sf(data=mal, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=irn, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=mmr, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=uzb, fill = "white")  
@@ -75,6 +71,12 @@ for (dist in dist_thresholds)
     gdisplay <- gdisplay + geom_sf(data=tjk, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=tkm, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=afg, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=pak, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=nep, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=bhu, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=ban, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=lak, fill = "white")  
+    gdisplay <- gdisplay + geom_sf(data=mal, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=ind, fill = "white")  
     gdisplay <- gdisplay + geom_sf(data=sta, linetype = "dashed", fill = "transparent")
     gdisplay <- gdisplay + coord_sf(xlim = c(bounds['xlow'], bounds['xhigh']), ylim = c(bounds['ylow'], bounds['yhigh'])) 
@@ -163,7 +165,10 @@ for (dist in dist_thresholds)
       gdisplaya <- NULL
     }
     else
-    {
+    { #TODO: Missing code piece for outputting SVG files. Move captial to first in seasonal as well.
+      gdisplay <- gdisplay + 
+                    geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = 15, color = "black", fill = "black", size = 1) 
+      
       if (! ( file.exists(paste0(".\\polygons\\polygons_",sp,"_", dist, ".rds")) | 
               file.exists(paste0(".\\points\\points_",sp,"_", dist, ".rds")))) 
       { 
@@ -189,20 +194,24 @@ for (dist in dist_thresholds)
       
   #    if( (Migration != "Resident") && (Migration != "Winter Migrant")) next; 
           
-      fillColour <- ifelse (Migration == "Winter Migrant", "darkblue", "darkgreen")
-  
+#      fillColour <- ifelse (Migration == "Winter Migrant", "darkblue", "darkgreen")
+
+      season = switch (Migration, 
+                      "Summer Migrant" = 'S', 
+                      "Winter Migrant" = 'W',
+                      "Passage Migrant" = 'P',
+                      "Resident" = 'R')
       
       if(!is.null(polygons))
       {
         gdisplay <- gdisplay +
-          geom_polygon(data= fortify(polygons), aes(x=long, y=lat, group=group), fill = fillColour, alpha=0.5, linewidth = 0) 
+          geom_polygon(data= fortify(polygons), aes(x=long, y=lat, group=group), fill = map_colors[season], alpha=0.5, linewidth = 0) 
       }
       
       if(!is.null(points))
       {
         gdisplay <- gdisplay + 
-          geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), color = "darkgreen", shape = 1, fill = "transparent", size = 3) + 
-          geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = 15, color = "black", fill = "black", size = 1) 
+          geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), color = map_colors[season], shape = 1, fill = "transparent", size = 3) 
       }
     }
     

@@ -2,21 +2,30 @@
 library (tidyverse)
 library(data.table)
 
-dist_thresholds <- c(50, 60, 100)
+
+dist_thresholds <- c(20, 50, 100)
 
 source("speciesAttr.R")
 
+dist_thresholds <- speciesattr$RESOLUTION %>% unique() %>% na.omit() %>% as.vector() %>% sort()
+
 species <- readRDS(".\\data\\species.rds")
+#speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
+species <- speciesattr$SCIENTIFIC.NAME
 species <- read.csv("species.csv") 
 species <- species[,1]
-speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
-species <- speciesattr$SCIENTIFIC.NAME
 
 for (dist in dist_thresholds)
 {
   for (sp in species) 
   {
-    Seasonal <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`SEASONAL`) 
+    Seasonal <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`SEASONAL`)  
+    
+    resolution <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`RESOLUTION`)
+    resolution <- ifelse(is.na(resolution), 100, as.integer(resolution))
+    
+    if(resolution != dist) next; 
+    
     if (!is.na(Seasonal$SEASONAL))
     {
       seasons <- strsplit(as.character(Seasonal$SEASONAL),":") %>% as.data.frame() %>% unique() %>% as.list() %>% unlist()
@@ -112,12 +121,14 @@ for (dist in dist_thresholds)
       }
       
       locality_matrix <- readRDS(paste0(".\\localitymatrix\\localitymatrix_",sp,".rds"))
+
       
     #  Begin create Clusters #######################################  
        n <- nrow(locality_matrix)
     
       # Make all NA as large value 
       locality_matrix[is.na(locality_matrix)] <- 1000
+      
       
        cluster_numbers <- rep(0, n)  # Initialize cluster numbers
        next_cluster_number <- 1  # Start with cluster number 1
@@ -126,21 +137,26 @@ for (dist in dist_thresholds)
          if (cluster_numbers[loc] == 0) {
            cluster_numbers[loc] <- next_cluster_number  # Assign cluster number
            
-           # Iterate over locations within the same cluster
-           locations_to_process <- loc
-           while (length(locations_to_process) > 0) {
-             current_location <- locations_to_process[1]
-             locations_to_process <- locations_to_process[-1]
-             
-             # Find nearby locations within the distance threshold
-             nearby_locations <- which(locality_matrix[current_location, ] <= dist)
-             
-             # Assign the same cluster number to nearby locations if not already assigned
-             unassigned_nearby <- nearby_locations[cluster_numbers[nearby_locations] == 0]
-             cluster_numbers[unassigned_nearby] <- next_cluster_number
-             
-             # Add unassigned nearby locations to the list for processing
-             locations_to_process <- c(locations_to_process, unassigned_nearby)
+           DotMapOnly <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`DOTMAP.ONLY`) 
+           
+           if (DotMapOnly != "X")
+           {
+             # Iterate over locations within the same cluster
+             locations_to_process <- loc
+             while (length(locations_to_process) > 0) {
+               current_location <- locations_to_process[1]
+               locations_to_process <- locations_to_process[-1]
+               
+               # Find nearby locations within the distance threshold
+               nearby_locations <- which(locality_matrix[current_location, ] <= dist)
+               
+               # Assign the same cluster number to nearby locations if not already assigned
+               unassigned_nearby <- nearby_locations[cluster_numbers[nearby_locations] == 0]
+               cluster_numbers[unassigned_nearby] <- next_cluster_number
+               
+               # Add unassigned nearby locations to the list for processing
+               locations_to_process <- c(locations_to_process, unassigned_nearby)
+             }
            }
            
            next_cluster_number <- next_cluster_number + 1  # Increment cluster number

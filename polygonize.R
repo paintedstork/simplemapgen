@@ -15,24 +15,29 @@ source("speciesAttr.R")
 
 
 #speciesattr <-  speciesattr %>% filter (ENDEMIC == "Yes")
-speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
+#speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
 
 species <- speciesattr$SCIENTIFIC.NAME
 
 #species <- readRDS(".\\data\\species.rds")
-#species <- read.csv("species.csv") 
-#species <- species[,1]
+species <- read.csv("species.csv") 
+species <- species[,1]
 
-dist_thresholds <- c(50, 60, 100)
+dist_thresholds <- c(20, 50, 100)
 #dist_thresholds <- c(100)
+dist_thresholds <- speciesattr$RESOLUTION %>% unique() %>% na.omit() %>% as.vector() %>% sort()
 
 # Go over all the species.
 for (sp in species)
 {
   for (dist in dist_thresholds)
   { 
-    Seasonal <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`SEASONAL`) 
+    resolution <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`RESOLUTION`)
+    resolution <- ifelse(is.na(resolution), 100, as.integer(resolution))
     
+    if(resolution != dist) next; 
+    
+    Seasonal <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`SEASONAL`)  
     if (!is.na(Seasonal$SEASONAL))
     {
       seasons <- strsplit(as.character(Seasonal$SEASONAL),":") %>% as.data.frame() %>% unique() %>% as.list() %>% unlist()
@@ -349,40 +354,56 @@ for (sp in species)
                 inner_join(spec_loc_table, by = c("LOCALITY.ID" = "LOCALITY_ID")) %>% 
                 mutate(LATITUDE = (LOCALITY.ID - 10000 * as.integer(LOCALITY.ID/10000))/10,
                        LONGITUDE = as.integer(LOCALITY.ID/10000)/10) %>%
+                filter (LATITUDE <= boundsConfig['None','yhigh'] & LATITUDE >= boundsConfig['None','ylow']) %>%
                 dplyr::select(LATITUDE, LONGITUDE) %>%
                 distinct()
               
-              sp::coordinates(loc3) <- ~LONGITUDE+LATITUDE
-              CH = gConvexHull(loc3)
-              
-              if("polygons" %in% slotNames(CH))
+              if (nrow(loc3) > 0)
               {
-                clusterPolygonCount <- clusterPolygonCount + 1
+                sp::coordinates(loc3) <- ~LONGITUDE+LATITUDE
+                CH = gConvexHull(loc3)
                 
-                PolygonType <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`POLYGON.TYPE`)
-                
-                if(PolygonType == "Concave")
+                if("polygons" %in% slotNames(CH))
                 {
-                  dat_sf <- st_as_sf(loc3, coords = c("LONGITUDE", "LATITUDE"))
-                  concave <- concaveman(dat_sf, concavity = 1.0,  length_threshold = 0.3)
-                  CH <- as_Spatial(concave)
+                  clusterPolygonCount <- clusterPolygonCount + 1
+                  
+                  PolygonType <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`POLYGON.TYPE`)
+                  
+                  if(PolygonType == "Concave")
+                  {
+                    dat_sf <- st_as_sf(loc3, coords = c("LONGITUDE", "LATITUDE"))
+                    concave <- concaveman(dat_sf, concavity = 1.0,  length_threshold = 0.3)
+                    CH <- as_Spatial(concave)
+                  }
+                  else
+                  {
+                    # Use Convexhull itself
+                  }
+                  
+                  r_poly_smooth <- smooth(CH, method = "chaikin")
+                  buffer_distance <- 0.0001
+                  r_poly_smooth <- gBuffer(r_poly_smooth, byid = TRUE, width = buffer_distance)
+                  
+                  # Check for invalid geometries
+                  invalid_geometries <- !gIsValid(r_poly_smooth)
+                  
+                  # If there are invalid geometries, attempt to fix them
+                  if (any(invalid_geometries)) {
+                    # Identify and fix invalid geometries
+                    print(paste("Invalid geometries for cluster",j))
+  #                  r_poly_smooth <- gMakeValid(r_poly_smooth)
+                  }                
+
+                  # Assigning unique ID
+                  r_poly_smooth@polygons[[1]]@ID <- as.character(clusterPolygonCount)
+                  
+                  clusterPolygons[[clusterPolygonCount]] <- r_poly_smooth
                 }
                 else
-                {
-                  # Use Convexhull itself
+                { # Remove these points from the cluster as they lie in a straight line
+                  cluster <- cluster %>%
+                    mutate(CLUSTER = ifelse(CLUSTER == j, NA, CLUSTER))
                 }
-                
-                r_poly_smooth <- smooth(CH, method = "chaikin")
-                
-                # Assigning unique ID
-                r_poly_smooth@polygons[[1]]@ID <- as.character(clusterPolygonCount)
-                
-                clusterPolygons[[clusterPolygonCount]] <- r_poly_smooth
-              }
-              else
-              { # Remove these points from the cluster as they lie in a straight line
-                cluster <- cluster %>%
-                  mutate(CLUSTER = ifelse(CLUSTER == j, NA, CLUSTER))
               }
             }
           }

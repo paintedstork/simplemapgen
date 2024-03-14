@@ -1,4 +1,5 @@
 library(sp)
+library(sf)
 
 # Moved to a file where the islands near the delta are cleaned up
 #ind           <- st_read("shapes\\India.shp")
@@ -51,9 +52,11 @@ lak <- lak[, c("ID_0", "geometry")]
 colnames(lak) <- c("ID", "geometry")
 lak$ID[1] <- 6
 
-mal <- st_read("shapes\\Maldives.shp")
+mal <- st_read("shapes\\mal_isl_clean.shp")
 mal <- mal[, c("ID_0", "geometry")]
 colnames(mal) <- c("ID", "geometry")
+mal_geometry <- st_combine(st_geometry(mal))
+mal <- st_sf(ID=1,geometry = mal_geometry)
 mal$ID[1] <- 7
 
 irn <- st_read("shapes\\irn_admbnda_adm0_unhcr_20190514.shp")
