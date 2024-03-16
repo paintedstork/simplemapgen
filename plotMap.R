@@ -19,31 +19,26 @@ library(ggpolypath)
 library(sfheaders)
 
 plot <- 1
+source("config.R")
 source("mapLoad.R")
 source("speciesAttr.R")
 
 
-
-map_colors <- c("W" = "darkblue", "S" = "red", "R" = "darkgreen", "P" = "yellow2")
-
 #num_cores <- detectCores()
-
 ##cl <- makeCluster(num_cores)
 #registerDoParallel(cl)
 
 
 #speciesattr <-  speciesattr %>% filter (ENDEMIC == "Yes")
-
 #speciesattr <-  speciesattr %>% filter (MIGRATION == "Resident")
 
-#species <- speciesattr$SCIENTIFIC.NAME %>% sort()
 species <- speciesattr$SCIENTIFIC.NAME
 
 #species <- readRDS(".\\data\\species.rds")
 species <- read.csv("species.csv") 
 species <- species[,1]
 
-dist_thresholds <- c(20, 50, 100)
+#dist_thresholds <- c(20, 50, 100)
 dist_thresholds <- speciesattr$RESOLUTION %>% unique() %>% na.omit() %>% as.vector() %>% sort()
 
 for (sp in species)
@@ -52,14 +47,13 @@ for (sp in species)
   {
   # Go over all the species.
     resolution <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`RESOLUTION`)
-    resolution <- ifelse(is.na(resolution), 100, as.integer(resolution))
+    resolution <- ifelse(is.na(resolution), defaultDistanceThreshold, as.integer(resolution))
     
     if(resolution != dist) next; 
     
     ClipRegion <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`CLIP.REGION`)
     
     bounds <- boundsConfig[ClipRegion$CLIP.REGION,]
-    
     
     gdisplay <- ggplot()
     gdisplay <- gdisplay + geom_sf(data=sea, fill = "lightblue")  
@@ -87,14 +81,17 @@ for (sp in species)
             panel.border = element_blank(),
             axis.text = element_blank(),
             axis.title = element_blank())
+    gdisplay <- gdisplay + 
+      geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = capitalIconShape, color = capitalIconFillColor, fill = capitalIconFillColor, size = capitalIconSize) 
     
     Seasonal <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`SEASONAL`) 
-    
+
     if (!is.na(Seasonal$SEASONAL))
     {
       seasons <- strsplit(as.character(Seasonal$SEASONAL),":") %>% as.data.frame() %>% unique() %>% as.list() %>% unlist()
       
-      gdisplaya <- gdisplay
+      gdisplaya <- gdisplay  #Variable holding plots across all seasons
+      
       for(season in seasons)
       { 
         if (! ( file.exists(paste0(".\\polygons\\polygons_",sp,"_", dist,"_", season, ".rds")) | 
@@ -118,7 +115,7 @@ for (sp in species)
           points   <- readRDS(paste0(".\\points\\points_",sp,"_", dist,"_", season, ".rds"))
         }
         
-        gdisplays <- gdisplay
+		gdisplays <- gdisplay  #Variable holding plot for one season
         if(!is.null(polygons))
         {
           gdisplaya <- gdisplaya +
@@ -130,34 +127,41 @@ for (sp in species)
         if(!is.null(points))
         {
           gdisplaya <- gdisplaya + 
-            geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), colour = map_colors[season], shape = 1, fill = "transparent", size = 3) + 
-            geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = 15, color = "black", fill = "black", size = 1) 
+            geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), colour = map_colors[season], shape = pointIconShape, fill = pointIconFillColor, size = pointIconSize)  
           gdisplays <- gdisplays + 
-            geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), colour = map_colors[season], shape = 1, fill = "transparent", size = 3) + 
-            geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = 15, color = "black", fill = "black", size = 1) 
+            geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), colour = map_colors[season], shape = pointIconShape, fill = pointIconFillColor, size = pointIconSize)  
         }
         
-        cname <- paste0 (speciesattr[speciesattr$SCIENTIFIC.NAME == sp,]$ENGLISH.NAME, " (", season,")")
+        cname = ""
+        if (showSpeciesName)
+        {
+          cname <- paste0 (speciesattr[speciesattr$SCIENTIFIC.NAME == sp,]$ENGLISH.NAME, " (", season,")")
+        }
         
         gdisplays <- gdisplays + 
           theme(legend.position = "none") +
           ggtitle(cname) +
-          theme(plot.title = element_text(color = "black", size = 12, hjust = 1, vjust = 0.5, family = "Times New Roman"),
-                panel.border = element_rect(color = "black", fill = NA, size = 1),
-                plot.margin = margin(t = 80, r = 10, b = 10, l = 10))      
-        if(!is.null(gdisplays))
+          theme(plot.title = element_text(color = speciesNameColor, size = speciesNameFontSize, hjust = 1, vjust = 0.5, family = "Times New Roman"),
+                panel.border = element_rect(color = panelBorderColor, fill = NA, size = panelBorderSize),
+                plot.margin = margin(t = marginTop, r = marginRight, b = marginBottom, l = marginLeft))      
+        
+        if(!is.null(gdisplays) & generateSeasonalMaps)
         {
           print(paste("Saving map",sp,dist,season))
           ggsave(filename = paste0(".\\map\\map_",sp,"_", dist,"_",season,".jpg"), 
                  plot = gdisplays,
-                 width = 7, 
-                 height = 7, 
+                 width = jpgWidthinInches, 
+                 height = jpgHeightinInches, 
                  units = "in")
-          ggsave(filename = paste0(".\\map_svg\\map_",sp,"_", dist,"_",season,".svg"), 
-                 plot = gdisplays,
-                 width = 7, 
-                 height = 7, 
-                 units = "in")
+          
+          if(generateSVG)
+          {
+            ggsave(filename = paste0(".\\map_svg\\map_",sp,"_", dist,"_",season,".svg"), 
+                   plot = gdisplays,
+                   width = svgWidthinInches, 
+                   height = svgHeightinInches, 
+                   units = "in")
+          }
         }
         gdisplays <- NULL
       }
@@ -165,9 +169,7 @@ for (sp in species)
       gdisplaya <- NULL
     }
     else
-    { #TODO: Missing code piece for outputting SVG files. Move captial to first in seasonal as well.
-      gdisplay <- gdisplay + 
-                    geom_point(data = cap, aes(x=LONGITUDE, y=LATITUDE), shape = 15, color = "black", fill = "black", size = 1) 
+    {  
       
       if (! ( file.exists(paste0(".\\polygons\\polygons_",sp,"_", dist, ".rds")) | 
               file.exists(paste0(".\\points\\points_",sp,"_", dist, ".rds")))) 
@@ -188,14 +190,9 @@ for (sp in species)
         points   <- readRDS(paste0(".\\points\\points_",sp,"_", dist, ".rds"))
       }
     
-
       
       Migration <- speciesattr %>% filter (`SCIENTIFIC.NAME` == sp) %>% dplyr::select(`MIGRATION`) %>% as.character()
       
-  #    if( (Migration != "Resident") && (Migration != "Winter Migrant")) next; 
-          
-#      fillColour <- ifelse (Migration == "Winter Migrant", "darkblue", "darkgreen")
-
       season = switch (Migration, 
                       "Summer Migrant" = 'S', 
                       "Winter Migrant" = 'W',
@@ -211,32 +208,39 @@ for (sp in species)
       if(!is.null(points))
       {
         gdisplay <- gdisplay + 
-          geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), color = map_colors[season], shape = 1, fill = "transparent", size = 3) 
+          geom_point(data = fortify(points), aes(x=LONGITUDE, y=LATITUDE), color = map_colors[season], shape = pointIconShape, fill = pointIconFillColor, size = pointIconSize) 
       }
     }
     
-    cname <- speciesattr[speciesattr$SCIENTIFIC.NAME == sp,]$ENGLISH.NAME
+    cname = ""
+    if (showSpeciesName)
+    {
+      cname <- speciesattr[speciesattr$SCIENTIFIC.NAME == sp,]$ENGLISH.NAME
+    }
     
     gdisplay <- gdisplay + 
       theme(legend.position = "none") +
       ggtitle(cname) +
-      theme(plot.title = element_text(color = "black", size = 12, hjust = 1, vjust = 0.5, family = "Times New Roman"),
-            panel.border = element_rect(color = "black", fill = NA, size = 1),
-            plot.margin = margin(t = 80, r = 10, b = 10, l = 10))      
+      theme(plot.title = element_text(color = speciesNameColor, size = speciesNameFontSize, hjust = 1, vjust = 0.5, family = "Times New Roman"),
+            panel.border = element_rect(color = panelBorderColor, fill = NA, size = panelBorderSize),
+            plot.margin = margin(t = marginTop, r = marginRight, b = marginBottom, l = marginLeft))      
     
     if(!is.null(gdisplay))
     {
       print(paste("Saving map",sp))
       ggsave(filename = paste0(".\\map\\map_",sp,"_", dist,".jpg"), 
              plot = gdisplay,
-             width = 7, 
-             height = 7, 
+             width = jpgWidthinInches, 
+             height = jpgHeightinInches, 
              units = "in")
-#      ggsave(filename = paste0(".\\map_svg\\map_",sp,"_", dist,".svg"), 
-#             plot = gdisplay,
-#             width = 7, 
-#             height = 7, 
-#             units = "in")
+      if (generateSVG)
+      {
+        ggsave(filename = paste0(".\\map_svg\\map_",sp,"_", dist,".svg"), 
+               plot = gdisplay,
+               width = svgWidthinInches, 
+               height = svgHeightinInches, 
+               units = "in")
+      }
     }
     
     
