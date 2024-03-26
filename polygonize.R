@@ -77,7 +77,7 @@ getClusterPolygons <- function (sp, dist = 100, season = "")
 #          inner_join(spec_loc_table, by = c("LOCALITY.ID" = "LOCALITY_ID")) %>% 
           mutate(LATITUDE = (LOCALITY.ID - 10000 * as.integer(LOCALITY.ID/10000))/10,
                  LONGITUDE = as.integer(LOCALITY.ID/10000)/10) %>%
-          filter (LATITUDE <= boundsConfig['None','yhigh'] & LATITUDE >= boundsConfig['None','ylow']) %>%
+          filter (LATITUDE <= boundsConfig['None','ymax'] & LATITUDE >= boundsConfig['None','ymin']) %>%
           dplyr::select(LATITUDE, LONGITUDE) %>%
           distinct()
         
@@ -275,6 +275,7 @@ for (sp in species)
       else
       {
         seasonPriority <- defaultSeasonPriority
+        seasonPriority <- seasonPriority[seasonPriority %in% unique(seasons)]
       }
         
       # Find intersecting polygons, find the difference, remove the lower priority one.
@@ -370,20 +371,20 @@ for (sp in species)
         # Before removing and merging, find if there are any points in cluster that is a result of this polygon that is going to be removed
         # Move such points to clusterNA
 
-        for(season1 in seasons)         
-        {
-          clippedMergedPolygons <- NULL
-          if(file.exists(paste0(".\\polygons\\polygons_",sp,"_",dist,"_", season1, ".rds")))
-          {
-            clippedMergedPolygons <- readRDS(paste0(".\\polygons\\polygons_",sp,"_",dist,"_", season1, ".rds"))
-          }
+#        for(season1 in seasons)         
+#        {
+#          clippedMergedPolygons <- NULL
+#          if(file.exists(paste0(".\\polygons\\polygons_",sp,"_",dist,"_", season1, ".rds")))
+#          {
+#            clippedMergedPolygons <- readRDS(paste0(".\\polygons\\polygons_",sp,"_",dist,"_", season1, ".rds"))
+#          }
           
-          if( !is.null(clippedMergedPolygons) && (length(clippedMergedPolygons) > 0))
-          {
-            
-          }
-            
-        }
+#          if( !is.null(clippedMergedPolygons) && (length(clippedMergedPolygons) > 0))
+#          {
+#            
+#          }
+#            
+#        }
         
         
         if(!is.null(clusterNA))
@@ -434,7 +435,7 @@ for (sp in species)
 
 calculateArea <- function(region_name) {
   region_coords <- boundsConfig[region_name, ]
-  area <- geosphere::areaPolygon(cbind(c(region_coords['xlow'], region_coords['xhigh'], region_coords['xhigh'], region_coords['xlow'], region_coords['xlow']),
-                                       c(region_coords['ylow'], region_coords['ylow'], region_coords['yhigh'], region_coords['yhigh'], region_coords['ylow'])))
+  area <- geosphere::areaPolygon(cbind(c(region_coords['xmin'], region_coords['xmax'], region_coords['xmax'], region_coords['xmin'], region_coords['xmin']),
+                                       c(region_coords['ymin'], region_coords['ymax'], region_coords['ymax'], region_coords['ymax'], region_coords['ymin'])))
   return(area / 1e6)  # Convert square meters to square kilometers
 }
